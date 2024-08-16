@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Config Publisher</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        h1 {
+            color: #c9d1d9;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        #publishForm {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #8b949e;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            box-sizing: border-box;
+            font-size: 0.875rem;
+            margin-bottom: 16px;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.3);
+        }
+
+        button {
+            background-color: #238636;
+            color: #fff;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            display: inline-block;
+            width: 100%;
+            text-align: center;
+        }
+
+        button:hover {
+            background-color: #2ea043;
+        }
+
+        #responseMessage {
+            margin-top: 20px;
+            font-size: 0.875rem;
+            color: #c9d1d9;
+            display: none;
+        }
+
+        .success {
+            color: #28a745;
+        }
+
+        .error {
+            color: #e5534b;
+        }
+    </style>
+</head>
+<body>
+  <div id="publishFormContainer">
+    <h1>Config Publisher</h1>
+    <form id="publishForm">
+        <label for="deviceId">Device ID:</label>
+        <input type="text" id="deviceId" placeholder="Enter device ID" required><br>
+        <label for="topic">Topic:</label>
+        <input type="text" id="topic" value="apm/server/data" required readonly><br>
+        <label for="message">Message (version):</label>
+        <input type="text" id="message" placeholder="Enter version number (e.g., 1.0.1)" pattern="\d+\.\d+\.\d+" required><br>
+        <button type="submit">Send</button>
+    </form>
+
+    <div id="responseMessage"></div>
+  </div>
+
+    <script>
+        document.getElementById('publishForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const deviceId = document.getElementById('deviceId').value.trim();
+            const topic = document.getElementById('topic').value;
+            let message = document.getElementById('message').value.trim();
+
+            // Format the message as v1.0.1
+            if (message) {
+                message = `v${message}`;
+            }
+
+            try {
+                const response = await fetch('http://localhost:5000/mqtt/publish', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ deviceId, topic, message })
+                });
+
+                const responseData = await response.text();
+                const responseMessage = document.getElementById('responseMessage');
+
+                if (response.ok) {
+                    responseMessage.className = 'success';
+                    responseMessage.innerText = `Success: ${responseData}`;
+                } else {
+                    responseMessage.className = 'error';
+                    responseMessage.innerText = `Error: ${responseData}`;
+                }
+
+                responseMessage.style.display = 'block';
+            } catch (error) {
+                console.error('Error:', error);
+                const responseMessage = document.getElementById('responseMessage');
+                responseMessage.className = 'error';
+                responseMessage.innerText = 'An error occurred while sending the message';
+                responseMessage.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
