@@ -1,7 +1,8 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const Logo = require("../models/logo"); // Ensure you require the Logo model
-const Fingerprint = require("../models/fingerprint"); 
-const Config = require("../models/configModel")
+const Fingerprint = require("../models/fingerprint");
+const Config = require("../models/configModel");
 const router = express.Router();
 const Device = require("../models/deviceData"); // Adjust the path as necessary
 
@@ -14,16 +15,17 @@ router.get("/all", async (req, res) => {
       deviceId,
       lat,
       lon,
-      networkLatchIpUp,
-      meterInstallationHhid,
+      online,
+      hhid,
       locationInstalling,
-      networkLatchSim,
-      meterInstallationSuccess,
-      configurationHardwareVersion,
+      sim,
+      installation,
+      hw,
     } = req.query;
 
     let query = {};
 
+    // Build the query based on the provided parameters
     if (deviceId) {
       query["DEVICE_ID"] = deviceId;
     } else {
@@ -40,81 +42,98 @@ router.get("/all", async (req, res) => {
       query["LOCATION.Cell_Info.lon"] = Number(lon);
     }
 
-    if (networkLatchIpUp !== undefined) {
-      query["NETWORK_LATCH.Ip_up"] = networkLatchIpUp === "true";
+    if (online !== undefined) {
+      query["NETWORK_LATCH.Ip_up"] = online === "true";
     }
 
-    if (meterInstallationHhid) {
-      query["METER_INSTALLATION.HHID"] = meterInstallationHhid;
+    if (hhid) {
+      query["METER_INSTALLATION.HHID"] = hhid;
     }
 
     if (locationInstalling !== undefined) {
       query["LOCATION.Installing"] = locationInstalling === "true";
     }
 
-    if (networkLatchSim) {
-      query["NETWORK_LATCH.Sim"] = networkLatchSim;
+    if (sim) {
+      query["NETWORK_LATCH.Sim"] = sim;
     }
 
-    if (meterInstallationSuccess !== undefined) {
-      query["METER_INSTALLATION.Success"] = meterInstallationSuccess === "true";
+    if (installation !== undefined) {
+      query["METER_INSTALLATION.Success"] = installation === "true";
     }
 
-    if (configurationHardwareVersion) {
-      query["CONFIGURATION.hardware_version"] = configurationHardwareVersion;
+    if (hw) {
+      query["CONFIGURATION.hardware_version"] = hw;
     }
 
-    const devices = await Device.find(query);
+    // Fetch all devices based on the query
+    const devices =
+      Object.keys(query).length === 0
+        ? await Device.find()
+        : await Device.find(query);
 
-    // Get all device IDs to fetch corresponding logos and fingerprints
+    // Get all device IDs to fetch corresponding data
     const deviceIds = devices.map((device) => device.DEVICE_ID);
 
-    // Fetch corresponding logos and fingerprints
-    const logos = await Logo.find({ device_id: { $in: deviceIds } });
-    const fingerprints = await Fingerprint.find({
-      device_id: { $in: deviceIds },
+    // Access MongoDB database directly for other collections
+    const db = mongoose.connection.db;
+
+    // Fetch the latest 10 logos and last 10 accuracies for each device
+    const logoResults = await db
+      .collection("Logo")
+      .find({ device_id: { $in: deviceIds } })
+      .sort({ ts: -1 }) // Sort by timestamp descending
+      .toArray();
+
+    const accuracyResults = await db
+      .collection("Accuracy")
+      .find({ deviceId: { $in: deviceIds } })
+      .sort({ Timestamp: -1 }) // Sort by timestamp descending
+      .toArray();
+
+    // Create a map of channel names to images
+    const logoImageMap = {};
+    const logoImages = await db
+      .collection("logo-images")
+      .find({ channel_id: { $in: logoResults.map((logo) => logo.Channel_ID) } })
+      .toArray();
+
+    logoImages.forEach((item) => {
+      logoImageMap[item.channel_name] = item.images;
     });
 
+    // Combine devices with the latest 10 logos and last 10 accuracies
     const results = devices.map((device) => {
-      const deviceLogos = logos.filter(
-        (logo) => logo.device_id === device.DEVICE_ID
-      );
-      const deviceFingerprints = fingerprints.filter(
-        (fp) => fp.device_id === device.DEVICE_ID
-      );
+      const deviceLogoResults = logoResults
+        .filter((logo) => logo.device_id === device.DEVICE_ID)
+        .slice(0, 10); // Get latest 10 logos
+
+      const deviceAccuracyResults = accuracyResults
+        .filter((accuracy) => accuracy.deviceId === device.DEVICE_ID)
+        .slice(0, 10); // Get last 10 accuracies
 
       return {
         DEVICE_ID: device.DEVICE_ID,
-        "LOCATION.Cell_Info.lat": device.LOCATION?.Cell_Info?.lat,
-        "LOCATION.Cell_Info.lon": device.LOCATION?.Cell_Info?.lon,
-        "METER_INSTALLATION.HHID": device.METER_INSTALLATION?.HHID,
-        "METER_INSTALLATION.Success": device.METER_INSTALLATION?.Success,
-        "NETWORK_LATCH.Ip_up": device.NETWORK_LATCH?.Ip_up,
-        "ALIVE.state": device.ALIVE?.state,
-        "CONFIGURATION.software_version":
-          device.CONFIGURATION?.software_version,
-        "CONFIGURATION.hardware_version":
-          device.CONFIGURATION?.hardware_version,
-        "NETWORK_LATCH.Sim": device.NETWORK_LATCH?.Sim,
-        "LOCATION.Installing": device.LOCATION?.Installing,
-        "LOCATION.region": device.LOCATION?.region,
-        "TAMPER_ALARM.AlertType": device.TAMPER_ALARM?.AlertType,
-        "TAMPER_ALARM.type": device.TAMPER_ALARM?.Type,
-        "SOS_ALARM.AlertType": device.SOS_ALARM?.AlertType,
-        "SOS_ALARM.type": device.SOS_ALARM?.Type,
-        "BATTERY_ALARM.AlertType": device.BATTERY_ALARM?.AlertType,
-        "BATTERY_ALARM.type": device.BATTERY_ALARM?.Type,
-        "SIM_ALERT.AlertType": device.SIM_ALERT?.AlertType,
-        "SIM_ALERT.type": device.SIM_ALERT?.Type,
-        "SYSTEM_ALARM.AlertType": device.SYSTEM_ALARM?.AlertType,
-        "SYSTEM_ALARM.type": device.SYSTEM_ALARM?.Type,
-        "CONFIG_UPDATE.value": device.CONFIG_UPDATE?.value,
-        "CONFIG_UPDATE.old_value": device.CONFIG_UPDATE?.old_value,
-        "METER_OTA.previous": device.METER_OTA?.previous,
-        "METER_OTA.update": device.METER_OTA?.update,
-        "METER_OTA.success": device.METER_OTA?.success,
-        logos: deviceLogos, // Include logos for this device
-        fingerprints: deviceFingerprints, // Include fingerprints for this device
+        lat: device.LOCATION?.Cell_Info?.lat,
+        lon: device.LOCATION?.Cell_Info?.lon,
+        hhid: device.METER_INSTALLATION?.HHID,
+        meterSuccess: device.METER_INSTALLATION?.Success,
+        connectivity_status: device.NETWORK_LATCH?.Ip_up,
+        sim: device.NETWORK_LATCH?.Sim,
+        installing: device.LOCATION?.Installing,
+        hardwareVersion: device.CONFIGURATION?.hardware_version,
+        logos: deviceLogoResults.map((logo) => ({
+          timestamp: logo.ts,
+          channel_id: logo.Channel_ID,
+          accuracy: logo.accuracy,
+          images: logoImageMap[logo.channel_name] || [],
+        })),
+        accuracies: deviceAccuracyResults.map((accuracy) => ({
+          audio_logo: accuracy.AFPResult,
+          logo_logo: accuracy.LogoResult,
+          priority: accuracy.Priority,
+          ts: accuracy.Timestamp,
+        })),
       };
     });
 
@@ -133,153 +152,559 @@ router.get("/latest", async (req, res) => {
       deviceId,
       lat,
       lon,
-      networkLatchIpUp,
-      meterInstallationHhid,
+      online,
+      hhid,
       locationInstalling,
-      networkLatchSim,
-      meterInstallationSuccess,
-      configurationHardwareVersion,
+      sim,
+      installation,
+      hw,
     } = req.query;
 
-    let query = {};
+    let matchQuery = {};
 
+    // Build the match query based on provided parameters
     if (deviceId) {
-      query["DEVICE_ID"] = deviceId;
-    } else {
-      if (deviceIdMin && deviceIdMax) {
-        query["DEVICE_ID"] = {
-          $gte: Number(deviceIdMin),
-          $lte: Number(deviceIdMax),
-        };
-      }
+      matchQuery["DEVICE_ID"] = Number(deviceId);
+    } else if (deviceIdMin && deviceIdMax) {
+      matchQuery["DEVICE_ID"] = {
+        $gte: Number(deviceIdMin),
+        $lte: Number(deviceIdMax),
+      };
     }
 
     if (lat && lon) {
-      query["LOCATION.Cell_Info.lat"] = Number(lat);
-      query["LOCATION.Cell_Info.lon"] = Number(lon);
+      matchQuery["LOCATION.Cell_Info.lat"] = Number(lat);
+      matchQuery["LOCATION.Cell_Info.lon"] = Number(lon);
     }
 
-    if (networkLatchIpUp !== undefined) {
-      query["NETWORK_LATCH.Ip_up"] = networkLatchIpUp === "true";
+    if (online !== undefined) {
+      matchQuery["NETWORK_LATCH.Ip_up"] = online === "true";
     }
 
-    if (meterInstallationHhid) {
-      query["METER_INSTALLATION.HHID"] = meterInstallationHhid;
+    if (hhid) {
+      matchQuery["METER_INSTALLATION.HHID"] = hhid;
     }
 
     if (locationInstalling !== undefined) {
-      query["LOCATION.Installing"] = locationInstalling === "true";
+      matchQuery["LOCATION.Installing"] = locationInstalling === "true";
     }
 
-    if (networkLatchSim) {
-      query["NETWORK_LATCH.Sim"] = networkLatchSim;
+    if (sim) {
+      matchQuery["NETWORK_LATCH.Sim"] = sim;
     }
 
-    if (meterInstallationSuccess !== undefined) {
-      query["METER_INSTALLATION.Success"] = meterInstallationSuccess === "true";
+    if (installation !== undefined) {
+      matchQuery["METER_INSTALLATION.Success"] = installation === "true";
     }
 
-    if (configurationHardwareVersion) {
-      query["CONFIGURATION.hardware_version"] = configurationHardwareVersion;
+    if (hw) {
+      matchQuery["CONFIGURATION.hardware_version"] = hw;
     }
 
-    const latestDevice = await Device.findOne(query).sort({ timestamp: -1 });
+    // Fetch the latest document for each DEVICE_ID matching the criteria
+    const latestDevices = await Device.aggregate([
+      { $match: matchQuery }, // Match the query criteria
+      { $sort: { ts: -1 } }, // Sort by timestamp in descending order (assuming 'ts' is your timestamp field)
+      {
+        $group: {
+          _id: "$DEVICE_ID", // Group by DEVICE_ID
+          latestRecord: { $first: "$$ROOT" }, // Get the first (latest) record per group
+        },
+      },
+      {
+        $lookup: {
+          from: "AFPResult",
+          localField: "latestRecord.DEVICE_ID",
+          foreignField: "device_id", // Ensure this matches the field in AFPResult collection
+          as: "AFPResult",
+          pipeline: [
+            { $sort: { time: -1 } }, // Sort by time in descending order
+            { $limit: 1 }, // Get the latest entry
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: "logos",
+          localField: "latestRecord.DEVICE_ID",
+          foreignField: "device_id", // Ensure this matches the field in logos collection
+          as: "LogoResult",
+          pipeline: [
+            { $sort: { ts: -1 } }, // Sort by ts (timestamp) in descending order
+            { $limit: 1 }, // Get the latest entry
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: "Accuracy",
+          localField: "latestRecord.DEVICE_ID",
+          foreignField: "deviceId", // Ensure this matches the field in Accuracy collection
+          as: "Accuracy",
+          pipeline: [
+            { $sort: { Timestamp: -1 } }, // Sort by Timestamp in descending order
+            { $limit: 1 }, // Get the latest entry
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: "logo-images",
+          let: {
+            logoChannelName: { $arrayElemAt: ["$LogoResult.Channel_ID", 0] },
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$channel_name", "$$logoChannelName"] },
+              },
+            },
+            { $project: { _id: 0, images: 1 } },
+          ],
+          as: "Images",
+        },
+      },
+      {
+        $addFields: {
+          "latestRecord.AFPResult": { $arrayElemAt: ["$AFPResult", 0] }, // Get the latest AFPResult
+          "latestRecord.LogoResult": { $arrayElemAt: ["$LogoResult", 0] }, // Get the latest LogoResult
+          "latestRecord.Accuracy": { $arrayElemAt: ["$Accuracy", 0] }, // Get the latest Accuracy
+          "latestRecord.Images": { $arrayElemAt: ["$Images", 0] }, // Get the latest logo-images
+        },
+      },
+      {
+        $replaceRoot: { newRoot: "$latestRecord" }, // Replace root with latest document
+      },
+      {
+        $project: {
+          _id: 0,
+          DEVICE_ID: 1,
+          region: "$LOCATION.Cell_Info.region",
+          lat: "$LOCATION.Cell_Info.lat",
+          lon: "$LOCATION.Cell_Info.lon",
+          hhid: "$METER_INSTALLATION.HHID",
+          meterSuccess: "$METER_INSTALLATION.Success",
+          connectivity_status: "$NETWORK_LATCH.Ip_up",
+          aliveState: "$ALIVE.state",
+          softwareVersion: "$CONFIGURATION.software_version",
+          hardwareVersion: "$CONFIGURATION.hardware_version",
+          sim: "$NETWORK_LATCH.Sim",
+          installing: "$LOCATION.Installing",
+          tamperAlarmAlertType: "$TAMPER_ALARM.AlertType",
+          tamperAlarmType: "$TAMPER_ALARM.Type",
+          sosAlarmAlertType: "$SOS_ALARM.AlertType",
+          sosAlarmType: "$SOS_ALARM.Type",
+          batteryAlarmAlertType: "$BATTERY_ALARM.AlertType",
+          batteryAlarmType: "$BATTERY_ALARM.Type",
+          simAlertAlertType: "$SIM_ALERT.AlertType",
+          simAlertType: "$SIM_ALERT.Type",
+          systemAlarmAlertType: "$SYSTEM_ALARM.AlertType",
+          systemAlarmType: "$SYSTEM_ALARM.Type",
+          configUpdateValue: "$CONFIG_UPDATE.value",
+          configUpdateOldValue: "$CONFIG_UPDATE.old_value",
+          meterOtaPrevious: "$METER_OTA.previous",
+          meterOtaUpdate: "$METER_OTA.update",
+          meterOtaSuccess: "$METER_OTA.success",
+          afpResult: {
+            channelId: "$AFPResult.Channel_ID",
+            time: "$AFPResult.time",
+          },
+          logoResult: {
+            channelName: "$LogoResult.Channel_ID",
+            accuracy: "$LogoResult.accuracy",
+            ts: "$LogoResult.ts",
+          },
+          accuracyResult: {
+            audio_logo: "$Accuracy.AFPResult",
+            logo_logo: "$Accuracy.LogoResult",
+            priority: "$Accuracy.Priority",
+            ts: "$Accuracy.Timestamp",
+          },
+          images: "$Images.images", // Include images array
+        },
+      },
+    ]);
 
-    if (!latestDevice) {
+    if (latestDevices.length === 0) {
       return res
         .status(404)
-        .json({ message: "No device found matching the criteria." });
+        .json({ message: "No devices found matching the criteria." });
     }
 
-    // Fetch corresponding logos and fingerprints for the latest device
-    const deviceLogos = await Logo.find({ device_id: latestDevice.DEVICE_ID });
-    const deviceFingerprints = await Fingerprint.find({
-      device_id: latestDevice.DEVICE_ID,
-    });
-
-    const result = {
-      DEVICE_ID: latestDevice.DEVICE_ID,
-      "LOCATION.Cell_Info.lat": latestDevice.LOCATION?.Cell_Info?.lat,
-      "LOCATION.Cell_Info.lon": latestDevice.LOCATION?.Cell_Info?.lon,
-      "METER_INSTALLATION.HHID": latestDevice.METER_INSTALLATION?.HHID,
-      "METER_INSTALLATION.Success": latestDevice.METER_INSTALLATION?.Success,
-      "NETWORK_LATCH.Ip_up": latestDevice.NETWORK_LATCH?.Ip_up,
-      "ALIVE.state": latestDevice.ALIVE?.state,
-      "CONFIGURATION.software_version":
-        latestDevice.CONFIGURATION?.software_version,
-      "CONFIGURATION.hardware_version":
-        latestDevice.CONFIGURATION?.hardware_version,
-      "NETWORK_LATCH.Sim": latestDevice.NETWORK_LATCH?.Sim,
-      "LOCATION.Installing": latestDevice.LOCATION?.Installing,
-      "LOCATION.region": latestDevice.LOCATION?.region,
-      "TAMPER_ALARM.AlertType": latestDevice.TAMPER_ALARM?.AlertType,
-      "TAMPER_ALARM.type": latestDevice.TAMPER_ALARM?.Type,
-      "SOS_ALARM.AlertType": latestDevice.SOS_ALARM?.AlertType,
-      "SOS_ALARM.type": latestDevice.SOS_ALARM?.Type,
-      "BATTERY_ALARM.AlertType": latestDevice.BATTERY_ALARM?.AlertType,
-      "BATTERY_ALARM.type": latestDevice.BATTERY_ALARM?.Type,
-      "SIM_ALERT.AlertType": latestDevice.SIM_ALERT?.AlertType,
-      "SIM_ALERT.type": latestDevice.SIM_ALERT?.Type,
-      "SYSTEM_ALARM.AlertType": latestDevice.SYSTEM_ALARM?.AlertType,
-      "SYSTEM_ALARM.type": latestDevice.SYSTEM_ALARM?.Type,
-      "CONFIG_UPDATE.value": latestDevice.CONFIG_UPDATE?.value,
-      "CONFIG_UPDATE.old_value": latestDevice.CONFIG_UPDATE?.old_value,
-      "METER_OTA.previous": latestDevice.METER_OTA?.previous,
-      "METER_OTA.update": latestDevice.METER_OTA?.update,
-      "METER_OTA.success": latestDevice.METER_OTA?.success,
-      logos: deviceLogos, // Include logos for this device
-      fingerprints: deviceFingerprints, // Include fingerprints for this device
-    };
-
-    res.json(result);
+    res.json(latestDevices);
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching data:", error);
     res.status(500).json({ error: "An error occurred while fetching data." });
   }
 });
 
 
+router.get("/live", async (req, res) => {
+  try {
+    const {
+      deviceIdMin,
+      deviceIdMax,
+      deviceId,
+      lat,
+      lon,
+      online,
+      hhid,
+      locationInstalling,
+      sim,
+      installation,
+      hw,
+    } = req.query;
+
+    let matchQuery = {};
+
+    // Build the match query based on provided parameters
+    if (deviceId) {
+      matchQuery["DEVICE_ID"] = Number(deviceId);
+    } else if (deviceIdMin && deviceIdMax) {
+      matchQuery["DEVICE_ID"] = {
+        $gte: Number(deviceIdMin),
+        $lte: Number(deviceIdMax),
+      };
+    }
+
+    if (lat && lon) {
+      matchQuery["LOCATION.Cell_Info.lat"] = Number(lat);
+      matchQuery["LOCATION.Cell_Info.lon"] = Number(lon);
+    }
+
+    if (online !== undefined) {
+      matchQuery["NETWORK_LATCH.Ip_up"] = online === "true";
+    }
+
+    if (hhid) {
+      matchQuery["METER_INSTALLATION.HHID"] = hhid;
+    }
+
+    if (locationInstalling !== undefined) {
+      matchQuery["LOCATION.Installing"] = locationInstalling === "true";
+    }
+
+    if (sim) {
+      matchQuery["NETWORK_LATCH.Sim"] = sim;
+    }
+
+    if (installation !== undefined) {
+      matchQuery["METER_INSTALLATION.Success"] = installation === "true";
+    }
+
+    if (hw) {
+      matchQuery["CONFIGURATION.hardware_version"] = hw;
+    }
+
+    // Fetch all documents matching the criteria
+    const allDevices = await Device.aggregate([
+      { $match: matchQuery }, // Match the query criteria
+      { $sort: { ts: -1 } }, // Sort by timestamp in descending order
+      { $limit: 10 }, // Limit to the latest 10 results
+      {
+        $lookup: {
+          from: "AFPResult",
+          localField: "DEVICE_ID",
+          foreignField: "device_id", // Ensure this matches the field in AFPResult collection
+          as: "AFPResult",
+          pipeline: [
+            { $sort: { time: -1 } }, // Sort AFPResult by time in descending order
+            { $limit: 1 }, // Get the latest entry
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: "logos",
+          localField: "DEVICE_ID",
+          foreignField: "device_id", // Ensure this matches the field in logos collection
+          as: "LogoResult",
+          pipeline: [
+            { $sort: { ts: -1 } }, // Sort LogoResult by ts (timestamp) in descending order
+            { $limit: 1 }, // Get the latest entry
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: "Accuracy",
+          localField: "DEVICE_ID",
+          foreignField: "deviceId", // Ensure this matches the field in Accuracy collection
+          as: "Accuracy",
+          pipeline: [
+            { $sort: { Timestamp: -1 } }, // Sort Accuracy by Timestamp in descending order
+            { $limit: 1 }, // Get the latest entry
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: "logo-images",
+          let: {
+            logoChannelName: { $arrayElemAt: ["$LogoResult.Channel_ID", 0] },
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$channel_name", "$$logoChannelName"] },
+              },
+            },
+            { $project: { _id: 0, images: 1 } },
+          ],
+          as: "Images",
+        },
+      },
+      {
+        $addFields: {
+          AFPResult: { $arrayElemAt: ["$AFPResult", 0] }, // Get the latest result from AFPResult
+          LogoResult: { $arrayElemAt: ["$LogoResult", 0] }, // Get the latest result from logos
+          Accuracy: { $arrayElemAt: ["$Accuracy", 0] }, // Get the latest result from Accuracy
+          Images: { $arrayElemAt: ["$Images", 0] }, // Get the latest result from logo-images
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          DEVICE_ID: 1,
+          region: "$LOCATION.Cell_Info.region",
+          lat: "$LOCATION.Cell_Info.lat",
+          lon: "$LOCATION.Cell_Info.lon",
+          hhid: "$METER_INSTALLATION.HHID",
+          meterSuccess: "$METER_INSTALLATION.Success",
+          connectivity_status: "$NETWORK_LATCH.Ip_up",
+          aliveState: "$ALIVE.state",
+          softwareVersion: "$CONFIGURATION.software_version",
+          hardwareVersion: "$CONFIGURATION.hardware_version",
+          sim: "$NETWORK_LATCH.Sim",
+          installing: "$LOCATION.Installing",
+          tamperAlarmAlertType: "$TAMPER_ALARM.AlertType",
+          tamperAlarmType: "$TAMPER_ALARM.Type",
+          sosAlarmAlertType: "$SOS_ALARM.AlertType",
+          sosAlarmType: "$SOS_ALARM.Type",
+          batteryAlarmAlertType: "$BATTERY_ALARM.AlertType",
+          batteryAlarmType: "$BATTERY_ALARM.Type",
+          simAlertAlertType: "$SIM_ALERT.AlertType",
+          simAlertType: "$SIM_ALERT.Type",
+          systemAlarmAlertType: "$SYSTEM_ALARM.AlertType",
+          systemAlarmType: "$SYSTEM_ALARM.Type",
+          configUpdateValue: "$CONFIG_UPDATE.value",
+          configUpdateOldValue: "$CONFIG_UPDATE.old_value",
+          meterOtaPrevious: "$METER_OTA.previous",
+          meterOtaUpdate: "$METER_OTA.update",
+          meterOtaSuccess: "$METER_OTA.success",
+          afpResult: {
+            channelId: "$AFPResult.Channel_ID",
+            time: "$AFPResult.time",
+          },
+          logoResult: {
+            channelName: "$LogoResult.Channel_ID",
+            accuracy: "$LogoResult.accuracy",
+            ts: "$LogoResult.ts",
+          },
+          accuracyResult: {
+            audio_logo: "$Accuracy.AFPResult",
+            logo_logo: "$Accuracy.LogoResult",
+            priority: "$Accuracy.Priority",
+            ts: "$Accuracy.Timestamp",
+          },
+          images: "$Images.images", // Include images array
+        },
+      },
+    ]);
+
+    if (allDevices.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No devices found matching the criteria." });
+    }
+
+    res.json(allDevices);
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    res.status(500).json({ error: "An error occurred while fetching data." });
+  }
+});
+
+
+// router.get("/live", async (req, res) => {
+//   try {
+//     const {
+//       deviceIdMin,
+//       deviceIdMax,
+//       deviceId,
+//       lat,
+//       lon,
+//       online,
+//       hhid,
+//       locationInstalling,
+//       sim,
+//       installation,
+//       hw,
+//     } = req.query;
+
+//     let matchQuery = {};
+
+//     // Build the match query based on provided parameters
+//     if (deviceId) {
+//       matchQuery["DEVICE_ID"] = Number(deviceId);
+//     } else if (deviceIdMin && deviceIdMax) {
+//       matchQuery["DEVICE_ID"] = {
+//         $gte: Number(deviceIdMin),
+//         $lte: Number(deviceIdMax),
+//       };
+//     }
+
+//     if (lat && lon) {
+//       matchQuery["LOCATION.Cell_Info.lat"] = Number(lat);
+//       matchQuery["LOCATION.Cell_Info.lon"] = Number(lon);
+//     }
+
+//     if (online !== undefined) {
+//       matchQuery["NETWORK_LATCH.Ip_up"] = online === "true";
+//     }
+
+//     if (hhid) {
+//       matchQuery["METER_INSTALLATION.HHID"] = hhid;
+//     }
+
+//     if (locationInstalling !== undefined) {
+//       matchQuery["LOCATION.Installing"] = locationInstalling === "true";
+//     }
+
+//     if (sim) {
+//       matchQuery["NETWORK_LATCH.Sim"] = sim;
+//     }
+
+//     if (installation !== undefined) {
+//       matchQuery["METER_INSTALLATION.Success"] = installation === "true";
+//     }
+
+//     if (hw) {
+//       matchQuery["CONFIGURATION.hardware_version"] = hw;
+//     }
+
+//     console.log("Match Query:", matchQuery); // Debugging
+
+//     // Access the native MongoDB driver through Mongoose
+//     const db = mongoose.connection.db;
+
+//     // Fetch the last 10 logo accuracies based on the criteria
+//     const latestLogoAccuracies = await db
+//       .collection("Accuracy")
+//       .aggregate([
+//         { $match: matchQuery }, // Match the query criteria
+//         { $sort: { Timestamp: -1 } }, // Sort by timestamp in descending order to get latest entries first
+//         { $limit: 10 }, // Limit to the last 10 entries
+//         {
+//           $lookup: {
+//             from: "logos",
+//             localField: "LogoResult",
+//             foreignField: "Channel_ID",
+//             as: "LogoData",
+//           },
+//         },
+//         {
+//           $unwind: "$LogoData", // Unwind the LogoData array
+//         },
+//         {
+//           $lookup: {
+//             from: "AFPResult",
+//             localField: "AFPResult",
+//             foreignField: "Channel_ID",
+//             as: "AFPData",
+//           },
+//         },
+//         {
+//           $unwind: "$AFPData", // Unwind the AFPData array
+//         },
+//         {
+//           $project: {
+//             _id: 0,
+//             device_id: "$LogoData.device_id",
+//             audio_logo: "$AFPData.Channel_ID", // Get audio logo channel ID from AFPResult
+//             logo_logo: "$LogoData.Channel_ID", // Get logo channel ID from logos
+//             priority: "$Priority",
+//             ts: "$Timestamp",
+//             logo_accuracy: "$LogoData.accuracy",
+//             afp_time: "$AFPData.time", // Get time from AFPResult
+//           },
+//         },
+//         { $sort: { ts: -1 } }, // Ensure the sorting is by timestamp in descending order in the final output
+//       ])
+//       .toArray(); // Convert aggregation cursor to an array
+
+//     console.log("Latest Logo Accuracies:", latestLogoAccuracies); // Debugging
+
+//     if (latestLogoAccuracies.length === 0) {
+//       return res
+//         .status(404)
+//         .json({ message: "No logo accuracies found matching the criteria." });
+//     }
+
+//     res.json(latestLogoAccuracies);
+//   } catch (error) {
+//     console.error("Error fetching data:", error);
+//     res.status(500).json({ error: "An error occurred while fetching data." });
+//   }
+// });
+
+
 router.get("/alerts", async (req, res) => {
   try {
-    const { deviceId } = req.query;
+    const { deviceId, AlertType } = req.query;
 
-    if (!deviceId) {
-      return res.status(400).json({ error: "deviceId is required" });
-    }
+    // Function to extract and filter alerts from a device
+    const extractAlerts = (device) => {
+      const alertTypes = [
+        "TAMPER_ALARM",
+        "SOS_ALARM",
+        "BATTERY_ALARM",
+        "SIM_ALERT",
+        "SYSTEM_ALARM",
+      ];
 
-    // Fetch the device data
-    const device = await Device.findOne({ DEVICE_ID: deviceId });
-
-    if (!device) {
-      return res.status(404).json({ error: "Device not found" });
-    }
-
-    // Extract alert information
-    const alerts = {
-      TAMPER_ALARM: {
-        type: device.TAMPER_ALARM?.Type,
-        AlertType: device.TAMPER_ALARM?.AlertType,
-      },
-      SOS_ALARM: {
-        type: device.SOS_ALARM?.Type,
-        AlertType: device.SOS_ALARM?.AlertType,
-      },
-      BATTERY_ALARM: {
-        type: device.BATTERY_ALARM?.Type,
-        AlertType: device.BATTERY_ALARM?.AlertType,
-      },
-      SIM_ALERT: {
-        type: device.SIM_ALERT?.Type,
-        AlertType: device.SIM_ALERT?.AlertType,
-      },
-      SYSTEM_ALARM: {
-        type: device.SYSTEM_ALARM?.Type,
-        AlertType: device.SYSTEM_ALARM?.AlertType,
-      },
+      return alertTypes
+        .map((type) => {
+          const alert = device[type];
+          return (
+            alert && {
+              DEVICE_ID: device.DEVICE_ID,
+              Type: alert.Type,
+              AlertType: alert.AlertType,
+              timestamp: alert.timestamp,
+            }
+          );
+        })
+        .filter(
+          (alert) =>
+            alert !== null && (!AlertType || alert.AlertType === AlertType)
+        );
     };
 
-    // Send the response
-    res.json(alerts);
+    let alerts = [];
+
+    if (deviceId) {
+      // Fetch the specific device
+      const device = await Device.findOne({ DEVICE_ID: deviceId });
+      if (!device) {
+        return res.status(404).json({ error: "Device not found" });
+      }
+
+      // Extract and filter alerts for the specific device
+      alerts = extractAlerts(device);
+    } else {
+      // Fetch all devices and extract alerts
+      const devices = await Device.find();
+      alerts = devices.flatMap(extractAlerts);
+    }
+
+    // Sort the alerts by timestamp
+    const sortedAlerts = alerts.sort(
+      (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+    );
+
+    // Send the response as an array of alert objects
+    res.json(sortedAlerts);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "An error occurred while fetching alerts." });
@@ -388,7 +813,6 @@ router.get("/total-devices/all", async (req, res) => {
   }
 });
 
-
 router.get("/devices/alert", async (req, res) => {
   try {
     const { alertType } = req.query;
@@ -456,6 +880,53 @@ router.get("/devices/alerts", async (req, res) => {
   }
 });
 
+// GET /config - Fetch the latest data for all devices
+router.get("/config", async (req, res) => {
+  try {
+    // Step 1: Fetch the latest records for all devices
+    const latestDevices = await Device.aggregate([
+      { $sort: { ts: -1 } },
+      { $group: { _id: "$DEVICE_ID", latestRecord: { $first: "$$ROOT" } } },
+      { $replaceRoot: { newRoot: "$latestRecord" } },
+    ]).exec();
+
+    console.log("Latest Devices:", latestDevices);
+
+    // Step 2: Get the latest configuration data for each device
+    const latestConfigurations = await Config.aggregate([
+      { $sort: { ts: -1 } },
+      { $group: { _id: "$deviceId", latestConfig: { $first: "$$ROOT" } } },
+      { $replaceRoot: { newRoot: "$latestConfig" } },
+    ]).exec();
+
+    console.log("Latest Configurations:", latestConfigurations);
+
+    // Step 3: Combine device data with configuration data
+    const results = latestDevices.map((device) => {
+      const config = latestConfigurations.find(
+        (conf) => conf.deviceId === device.DEVICE_ID
+      );
+
+      return {
+        DEVICE_ID: device.DEVICE_ID,
+        hhid: device.METER_INSTALLATION?.HHID,
+        hardware_version: device.CONFIGURATION?.hardware_version,
+        online: device.NETWORK_LATCH?.Ip_up,
+        CONFIG: config?.config,
+        CONFIG_TS: config?.ts,
+        TIMESTAMP: device.CONFIGURATION?.TS,
+      };
+    });
+
+    res.json(results);
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while fetching the data." });
+  }
+});
+
 
 router.get("/config/:deviceId", async (req, res) => {
   try {
@@ -476,21 +947,19 @@ router.get("/config/:deviceId", async (req, res) => {
     // Step 3: Combine device data with configuration data
     const result = {
       DEVICE_ID: latestDevice.DEVICE_ID,
-      "METER_INSTALLATION.HHID": latestDevice.METER_INSTALLATION?.HHID,
-      "NETWORK_LATCH.Ip_up": latestDevice.NETWORK_LATCH?.Ip_up,
-      CONFIG: configuration ? configuration.config : null, // Add config data if available
-      TIMESTAMP: latestDevice.ts, // Add timestamp to result
+      hhid: latestDevice.METER_INSTALLATION?.HHID,
+      online: latestDevice.NETWORK_LATCH?.Ip_up,
+      CONFIG: configuration ? configuration.config : "v1.0.2", // Default to "v1.0.2" if no config is found
+      TIMESTAMP: latestDevice.ts,
     };
 
     res.json(result);
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching data:", error);
     res
       .status(500)
       .json({ error: "An error occurred while fetching the data." });
   }
 });
-
-
 
 module.exports = router;

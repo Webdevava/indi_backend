@@ -6,6 +6,8 @@ const mongoose = require("mongoose");
 const mqttRoutes = require("./routes/mqttRoutes");
 const authRoutes = require("./routes/authRoutes");
 const searchRoutes = require("./routes/searchRoutes");
+const locationRoutes = require("./routes/locationRoutes");
+const userRoutes = require("./routes/userRoutes");
 const mqttService = require("./services/mqttService");
 
 const app = express();
@@ -24,7 +26,9 @@ app.use(
 app.use(express.json());
 app.use("/mqtt", mqttRoutes);
 app.use("/auth", authRoutes);
+app.use("/user", userRoutes);
 app.use("/search", searchRoutes);
+app.use("/location", locationRoutes);
 // app.use("/graph", graphRoutes);
 
 const PORT = process.env.PORT || 5000;

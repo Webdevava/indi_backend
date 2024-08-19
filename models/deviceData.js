@@ -51,7 +51,7 @@ const deviceDataSchema = new mongoose.Schema({
   },
   TAMPER_ALARM: {
     ID: { type: Number },
-    AlertType: { type: String, required: true },
+    AlertType: {type: String},
     Type: { type: Number },
     TS: { type: Number },
     Meter_tamper: { type: Boolean },
@@ -60,14 +60,14 @@ const deviceDataSchema = new mongoose.Schema({
   },
   SOS_ALARM: {
     ID: { type: Number },
-    AlertType: { type: String, required: true },
+    AlertType: {type: String},
     Type: { type: Number },
     TS: { type: Number },
     sos: { type: Boolean },
   },
   BATTERY_ALARM: {
     ID: { type: Number },
-    AlertType: { type: String, required: true },
+    AlertType: {type: String},
     Type: { type: Number },
     TS: { type: Number },
     main_bat_fail: { type: Boolean },
@@ -135,8 +135,8 @@ const deviceDataSchema = new mongoose.Schema({
     ID: { type: Number },
     TS: { type: Number },
     Type: { type: Number },
+    Sim: { type: Number },
     Ip_up: { type: Boolean },
-    Sim: { type: Number }, // 1 for sim1 2 for sim2
   },
 
   REMOTE_PAIRING: {
@@ -158,7 +158,7 @@ const deviceDataSchema = new mongoose.Schema({
   },
   SIM_ALERT: {
     ID: { type: Number },
-    AlertType: { type: String, required: true },
+    AlertType: {type: String},
     Type: { type: Number },
     TS: { type: Number },
     sim1_absent: { type: Boolean },
@@ -171,7 +171,7 @@ const deviceDataSchema = new mongoose.Schema({
     TS: { type: Number },
     Type: { type: Number },
     name: { type: String },
-    AlertType: { type: String, required: true },
+    AlertType: {type: String},
     Details: { type: mongoose.Schema.Types.Mixed },
   },
 

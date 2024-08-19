@@ -6,5 +6,5 @@ module.exports = {
   keyPath: path.join(__dirname, "./certs/test.private.pem.key"),
   caPath: path.join(__dirname, "./certs/root-ca.crt"),
   clientId: "mqtt-client-" + Math.random().toString(16).substr(2, 8),
-  topicsToSubscribe: ["apm/device/data", "apm/logo", "apm/fp"],
+  topicsToSubscribe: ["apm/device/data", "apm/logo"],
 };

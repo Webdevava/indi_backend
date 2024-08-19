@@ -3,7 +3,7 @@ const mqtt = awsIot.mqtt;
 const mqttConfig = require("../config/mqtt");
 const DeviceData = require("../models/deviceData");
 const Logo = require("../models/logo");
-const Fingerprint = require("../models/fingerprint");
+// const Fingerprint = require("../models/fingerprint");
 
 let client;
 
@@ -58,18 +58,19 @@ async function handleMessage(topic, payload) {
       return;
     }
 
-    console.log(`Received message on topic ${topic}:`, message);
+    // console.log(`Received message on topic ${topic}:`, message);
 
     switch (topic) {
       case "apm/device/data":
         await DeviceData.create(message);
         break;
       case "apm/logo":
+        console.log(message)
         await Logo.create( message );
         break;
-      case "apm/fp":
-        await Fingerprint.create( message);
-        break;
+      // case "apm/fp":
+      //   await Fingerprint.create( message);
+      //   break;
       default:
         console.log(`Unhandled topic: ${topic}`);
     }

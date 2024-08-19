@@ -8,7 +8,9 @@ require("dotenv").config();
 
 const connectDB = async () => {
   try {
-    await mongoose.connect("mongodb+srv://ankurauti:ankurauti02@cluster0.ng3tq.mongodb.net/APM2?retryWrites=true&w=majority&appName=Cluster0");
+    await mongoose.connect(
+      "mongodb+srv://ankurauti:ankurauti02@cluster0.ng3tq.mongodb.net/APM2?retryWrites=true&w=majority&appName=Cluster0"
+    );
     console.log("MongoDB connected");
   } catch (err) {
     console.error(err.message);
@@ -77,10 +79,10 @@ function generateRandomData() {
   const alertTypes = ["Generated", "Pending", "Resolved"];
   const randomAlertType =
     alertTypes[Math.floor(Math.random() * alertTypes.length)];
-  
-    const HWversion = ["APM1", "APM2", "APM3"];
-    const randomHWversion =
-      HWversion[Math.floor(Math.random() * alertTypes.length)];
+
+  const HWversion = ["APM1", "APM2", "APM3"];
+  const randomHWversion =
+    HWversion[Math.floor(Math.random() * alertTypes.length)];
 
   return {
     DEVICE_ID: 100001,
@@ -89,7 +91,7 @@ function generateRandomData() {
       TS: Date.now(),
       Type: 1,
       Cell_Info: {
-        region:"India",
+        region: "India",
         lat: randomDominicanRepublicLocation.lat,
         lon: randomDominicanRepublicLocation.lon,
       },
@@ -296,45 +298,26 @@ function generateRandomData() {
       update: faker.system.semver(),
       success: faker.datatype.boolean(),
     },
-    POWER: {
-      ID: lastDeviceId,
-      TS: Date.now(),
-      Type: 22,
-      Tv: faker.datatype.boolean(),
-      Main: faker.datatype.boolean(),
-      Smps: faker.datatype.boolean(),
-    },
     BATTERY_VOLTAGE: {
       ID: lastDeviceId,
       TS: Date.now(),
-      Type: 23,
+      Type: 22,
       Rtc: 2882,
       Meter: 4164,
     },
     BOOT: {
       ID: lastDeviceId,
       TS: Date.now(),
-      Type: 24,
+      Type: 23,
       boot_ts: Date.now(),
       last_boot_ts: Date.now(),
       last_shutdown_ts: Date.now(),
       clean: faker.datatype.boolean(),
     },
-    INSTALL_READY: {
-      ID: lastDeviceId,
-      TS: Date.now(),
-      Type: 25,
-      hhid: faker.number.int(),
-      remote_id: faker.number.int(),
-      sim1_imsi: faker.string.numeric(15),
-      sim2_imsi: faker.string.numeric(15),
-      sim1_pass: faker.datatype.boolean(),
-      sim2_pass: faker.datatype.boolean(),
-    },
     BOOT_V2: {
       ID: lastDeviceId,
       TS: Date.now(),
-      Type: 26,
+      Type: 24,
       rtc_ts: Date.now(),
       ntp_ts: Date.now(),
       cell_ts: Date.now(),
@@ -346,24 +329,23 @@ function generateRandomData() {
     STB: {
       ID: lastDeviceId,
       TS: Date.now(),
-      Type: 27,
+      Type: 25,
       state: faker.datatype.boolean(),
     },
     DERIVED_TV_STATUS: {
       ID: lastDeviceId,
       TS: Date.now(),
-      Type: 28,
+      Type: 26,
       state: faker.datatype.boolean(),
     },
     AUDIO_SOURCE: {
       ID: lastDeviceId,
       TS: Date.now(),
-      Type: 29,
+      Type: 27,
       Status: "line_in",
     },
   };
 }
-
 
 async function saveDataToMongo(inputJSON, schema) {
   try {

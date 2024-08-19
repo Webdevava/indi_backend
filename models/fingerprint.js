@@ -2,8 +2,8 @@ const mongoose = require("mongoose");
 
 const fingerprintSchema = new mongoose.Schema({
   device_id: { type: Number },
-  channel_id: { type: String, required: true },
-  timestamp: { type: Number },
+  Channel_ID: { type: String, required: true },
+  time: { type: Number },
 });
 
-module.exports = mongoose.model("Fingerprint", fingerprintSchema);
+module.exports = mongoose.model("AFPResult", fingerprintSchema);
