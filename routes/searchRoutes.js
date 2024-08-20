@@ -677,7 +677,7 @@ router.get("/alerts", async (req, res) => {
               Type: alert.Type,
               TS: alert.TS,
               AlertType: alert.AlertType,
-              timestamp: alert.timestamp,
+              timestamp: alert.timestamp, // Keep this if needed for other purposes
             }
           );
         })
@@ -704,10 +704,8 @@ router.get("/alerts", async (req, res) => {
       alerts = devices.flatMap(extractAlerts);
     }
 
-    // Sort the alerts by timestamp
-    const sortedAlerts = alerts.sort(
-      (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-    );
+    // Sort the alerts by TS (timestamp), latest one on top
+    const sortedAlerts = alerts.sort((a, b) => new Date(b.TS) - new Date(a.TS));
 
     // Send the response as an array of alert objects
     res.json(sortedAlerts);
@@ -716,6 +714,8 @@ router.get("/alerts", async (req, res) => {
     res.status(500).json({ error: "An error occurred while fetching alerts." });
   }
 });
+
+
 
 // Helper function to count devices with specific conditions
 const countDevices = async (query) => {
