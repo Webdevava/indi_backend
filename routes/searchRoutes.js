@@ -675,6 +675,7 @@ router.get("/alerts", async (req, res) => {
             alert && {
               DEVICE_ID: device.DEVICE_ID,
               Type: alert.Type,
+              TS: alert.TS,
               AlertType: alert.AlertType,
               timestamp: alert.timestamp,
             }

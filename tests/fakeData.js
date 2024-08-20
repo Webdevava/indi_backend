@@ -53,16 +53,16 @@ function getRandomDeviceId() {
 }
 
 const dominicanRepublicLocations = [
-  { lat: 18.4861, lon: -69.9312 }, // Santo Domingo
-  { lat: 19.7808, lon: -70.6871 }, // Santiago
-  { lat: 18.4274, lon: -68.9728 }, // Punta Cana
-  { lat: 19.0502, lon: -70.1496 }, // Puerto Plata
-  { lat: 18.809, lon: -69.811 }, // La Romana
-  { lat: 18.7357, lon: -70.1627 }, // San Pedro de Macorís
-  { lat: 19.5513, lon: -71.0758 }, // Mao
-  { lat: 19.217, lon: -69.336 }, // Nagua
-  { lat: 19.6122, lon: -71.2186 }, // Monte Cristi
-  { lat: 18.5885, lon: -68.4053 }, // Higüey
+  { lat: 18.5204, lon: 73.8567 }, // Pune
+  { lat: 19.076, lon: 72.8777 }, // Mumbai
+  { lat: 20.0074, lon: 73.7898 }, // Nashik
+  { lat: 18.922, lon: 72.8347 }, // Thane
+  { lat: 19.2183, lon: 73.0978 }, // Kalyan
+  { lat: 18.9696, lon: 72.8205 }, // Dombivli
+  { lat: 18.5074, lon: 73.8077 }, // Pimpri-Chinchwad
+  { lat: 20.011, lon: 73.7602 }, // Nashik Road
+  { lat: 19.9975, lon: 73.7898 }, // Deolali
+  { lat: 19.845, lon: 72.9081 }, // Palghar
 ];
 
 let lastDeviceId = 0;
@@ -85,7 +85,7 @@ function generateRandomData() {
     HWversion[Math.floor(Math.random() * alertTypes.length)];
 
   return {
-    DEVICE_ID: 100001,
+    DEVICE_ID: 100002,
     LOCATION: {
       ID: lastDeviceId,
       TS: Date.now(),
@@ -166,7 +166,7 @@ function generateRandomData() {
       ID: lastDeviceId,
       TS: Date.now(),
       Type: 8,
-      HHID: "APM32",
+      HHID: "125",
       Success: faker.datatype.boolean(),
     },
     VOLTAGE_STATS: {
