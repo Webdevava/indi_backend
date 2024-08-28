@@ -1,8 +1,8 @@
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
-const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 const { JWT_SECRET } = require("../config/config");
+const nodemailer = require("nodemailer");
 
 // Setup Nodemailer
 const transporter = nodemailer.createTransport({
@@ -17,9 +17,9 @@ const transporter = nodemailer.createTransport({
 
 // Register
 exports.register = async (req, res) => {
-  const { username, email, password } = req.body;
+  const { name, username, email, password } = req.body;
   try {
-    const user = new User({ username, email, password });
+    const user = new User({name, username, email, password });
     await user.save();
     res.status(201).json({ message: "User registered" });
   } catch (err) {
@@ -123,3 +123,5 @@ exports.showResetPasswordForm = async (req, res) => {
     </form>
   </body></html>`);
 };
+
+//--------------------------------------------------------------------------------------------
